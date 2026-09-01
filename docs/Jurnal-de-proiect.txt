@@ -1,0 +1,48 @@
+Jurnal de Proiect: Sistem IoT Autonom pentru Monitorizare Ambientală (KenoTemp)
+Obiectiv: Crearea unei stații IoT complet autonome pe baterie, capabilă să măsoare temperatura și umiditatea, și să transmită datele într-un dashboard Cloud, având un management energetic optimizat pentru o funcționare îndelungată.
+
+1. Arhitectura Hardware și Cablarea
+Am ales componente fiabile, axate pe consum redus și eficiență:
+
+Microcontroller: ESP32 (DevKit), ales pentru conectivitatea Wi-Fi și capabilitățile de Deep Sleep.
+
+Senzor: DHT11 pentru preluarea datelor ambientale.
+
+Alimentare: O celulă Li-Ion 18650, gestionată de un modul de încărcare și protecție TP4056. Astfel, sistemul poate fi reîncărcat ușor prin USB.
+
+Monitorizare Baterie: Am construit un divizor de tensiune din două rezistențe de 100kΩ. Acesta preia tensiunea maximă de 4.2V a bateriei și o înjumătățește pentru a putea fi citită în siguranță de pinul analogic al ESP32-ului.
+
+Cablare: Modulul TP4056 este legat direct la baterie, iar ieșirea lui alimentează ESP32-ul pe pinul VIN. Divizorul de tensiune este conectat la pinul analog, iar senzorul DHT11 la un pin digital standard.
+
+2. Software, Deep Sleep și Cloud (Blynk)
+Tot codul a fost dezvoltat în C++ folosind mediul PlatformIO / VS Code.
+
+Eficiență Energetică: Pentru a preveni consumul bateriei în doar câteva zile, am implementat modul Deep Sleep. ESP-ul stă activ doar ~5 secunde pentru a se conecta la Wi-Fi, a citi datele și a le transmite, după care "doarme" complet timp de 5-7 minute.
+
+Integrarea Cloud: Am folosit platforma Blynk IoT. Dispozitivul trimite 4 parametri pe pinii virtuali: Temperatura (V0), Umiditatea (V1), Voltajul brut (V2) și Procentajul bateriei (V3).
+
+Automatizări: Din interfața web Blynk, am configurat o regulă (Automation) care îmi trimite o notificare push pe telefonul mobil în momentul în care bateria scade sub 15%.
+
+3. Integrarea Fizică și Carcasa 3D
+Pentru a transforma electronica într-un produs finit, am așezat totul într-o carcasă personalizată, printată 3D pe imprimanta mea Creality Ender-3 V3 KE. Carcasa menține componentele fixe, ascunde firele și oferă un aspect curat, fiind gata de a fi montată pe perete.
+
+4. Provocări Tehnice și Soluții Găsite
+Dezvoltarea nu a fost lipsită de capcane specifice sistemelor hardware/software:
+
+Eroarea Convertorului ADC (Hardware Offset):
+
+Problema: Multimetrul îmi arăta că bateria este plină ochi la 4.20V, dar ESP32-ul raporta pe Blynk doar 3.85V, decalând complet procentajul.
+
+Soluția: Am aplicat o calibrare software (Software Offset) în cod. Am adăugat linia voltage = voltage + 0.35; înainte de maparea procentajului, rezolvând definitiv toleranțele rezistențelor și imprecizia ADC-ului intern.
+
+Blocajul datelor în Blynk Automations:
+
+Problema: Nu puteam crea regula de notificare pentru baterie descărcată deoarece platforma Blynk îmi spunea "No datastreams exposed for automation".
+
+Soluția: Am deblocat șablonul din Web Dashboard, am editat pinul V3 și l-am marcat ca „Sensor” în secțiunea Automations, permițând sistemului să citească datele în fundal.
+
+Sindromul "Butonului Apăsat" la Asamblare:
+
+Problema: După ce am pus totul în carcasa printată și am trecut pe baterie, placa nu mai trimitea deloc date. Părea a fi o problemă de "Brownout" (cădere de tensiune la pornirea Wi-Fi-ului din cauza firelor).
+
+Soluția: După zeci de teste și resetări manuale, am descoperit adevărata cauză mecanică: toleranțele peretelui carcasei printate 3D țineau butonul fizic EN (Reset) al plăcii ușor apăsat! Placa stătea blocată în reset perpetuu. Am rașchetat puțin plasticul la interior cu un cutter pentru a oferi spațiu butonului, iar sistemul a funcționat perfect, 100% autonom.

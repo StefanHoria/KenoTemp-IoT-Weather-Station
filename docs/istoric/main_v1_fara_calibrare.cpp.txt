@@ -1,0 +1,79 @@
+// VERSIUNEA 1 - inainte de calibrarea ADC (fara linia "voltage = voltage + 0.35;")
+// Pastrata ca reper istoric. Credentialele au fost inlocuite cu placeholdere.
+
+// --- Configurări BLYNK (Trebuie să fie mereu primele!) ---
+#define BLYNK_TEMPLATE_ID "TMPLxxxxxxxxx"
+#define BLYNK_TEMPLATE_NAME "KenoTemp"
+#define BLYNK_AUTH_TOKEN "TOKENUL_TAU"
+
+#include <Arduino.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <DHT.h>
+
+// --- Datele tale Wi-Fi ---
+char ssid[] = "NumeleRetelei";
+char pass[] = "ParolaRetelei";
+
+// --- Configurări Pini ---
+#define DHTPIN 4
+#define DHTTYPE DHT11
+#define BATT_PIN 34
+
+// --- Configurări Deep Sleep ---
+#define uS_TO_S_FACTOR 1000000ULL
+#define TIME_TO_SLEEP  300 // 5 minute
+
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+  Serial.println("\n--- Sistemul s-a trezit ---");
+
+  // Conectare la WiFi și Blynk
+  Serial.println("Ma conectez la WiFi si Blynk...");
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  
+  dht.begin();
+  delay(2000); // Senzorul are nevoie de 2 secunde pentru citire
+
+  // Citire Senzori
+  float humidity = dht.readHumidity();
+  float temperature = dht.readTemperature();
+  
+  int rawADC = analogRead(BATT_PIN);
+  float voltage = (rawADC / 4095.0) * 3.3 * 2.0;
+  
+  int batteryPercent = map(voltage * 100, 330, 420, 0, 100);
+  if (batteryPercent > 100) batteryPercent = 100;
+  if (batteryPercent < 0) batteryPercent = 0;
+
+  Serial.println("Date citite. Trimit catre platforma...");
+
+  // Trimitere date pe "conductele" virtuale setate de tine
+  if (!isnan(temperature) && !isnan(humidity)) {
+    Blynk.virtualWrite(V0, temperature);
+    Blynk.virtualWrite(V1, humidity);
+  }
+  Blynk.virtualWrite(V2, voltage);
+  Blynk.virtualWrite(V3, batteryPercent);
+
+  // Menținem conexiunea activă o fracțiune de secundă pentru a asigura trimiterea
+  Blynk.run();
+  delay(500); 
+
+  // Deconectare curată și somn
+  Blynk.disconnect();
+  WiFi.disconnect();
+
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  Serial.println("Date trimise! Intru in Deep Sleep... Zzz");
+  Serial.flush();
+  esp_deep_sleep_start();
+}
+
+void loop() {
+  // Rămâne complet gol din cauza Deep Sleep-ului
+}
